@@ -48,7 +48,10 @@ float clamp01(float f) { return max(0.0, min(1.0, f)); }
 float ssin(float f) { return smoothstep(0.47, 0.53, s1(f)); }
 void main()
 {
-	c = vec3(1.0, 1.0, 1.0);
+	//c = vec3(1.0, 1.0, 1.0);
+
+    c = normal * .5 + .5;
+
 	//c *= _out_v;
 	//c = vec3(mix(0.0, 1.0, (1.0/2.0)*(s1(.1*pos.x*s1(pos.x/10.0))+s1(pos.y))));
 	//c = vec3(
@@ -73,8 +76,6 @@ void main()
 
 	//_out += .01*vec3(1.0, 1.1, 1.3) * c;
 
-	//float z = .5+.5*gl_FragCoord.z;
-	//_out = mix(_out, vec3(.5, 0.0, 0.0), z);
 	//_out = vec3(mod(z, 1.0 / 1000.0) * 1000.0);
 	//_out = vec3(z);
 	_out /= dFdy(gl_FragCoord.z)*10000.0;
@@ -85,7 +86,6 @@ void main()
 	float luma = dot(_out, vec3(.2, .7, .1));
 	float luma2 = luma / (luma + 1.0);
 	_out *= luma2 / luma;
-	//_out = mix(_out, vec3(luma), luma2);
 	_out = pow(_out, vec3(1.0 / 2.2));
 	gl_FragColor = vec4(_out, 1.0);
 }
