@@ -1,14 +1,10 @@
 #include "precompiled.h"
 #include "ciextra.h"
 #include "util.h"
-#include "simplex_noise.h"
-#include <cinder/Camera.h>
-#include <boost/assign.hpp>
-#include <cinder/params/Params.h>
-using namespace boost::assign;
+#include "PerlinCalculator2D.h"
 
 typedef Array2D<Vec3f> Image;
-int sx = 100, sy = 100;
+int sx = 50, sy = 50;
 float wscale=2.0f; 
 gl::Texture tex;
 float mouseX, mouseY;
@@ -16,77 +12,7 @@ float counter = 0;
 gl::GlslProg shader;
 bool pause = false;
 
-struct PerlinCalculator2D
-{
-	vector<Vec3f> gradients;
-	static const int size = 16;
-	PerlinCalculator2D()
-	{
-		gradients = vector<Vec3f>(size*size*size);
 
-		for(int x = 0; x < size; x++)
-		{
-			for(int y = 0; y < size; y++)
-			{
-				for(int z = 0; z < size; z++)
-				{
-					auto& gradient = getGradient(Vec3i(x, y, z));
-					gradient = ci::Rand::randVec3f();
-				}
-			}
-		}
-		for(int x = 0; x < size; x++)
-		{
-			for(int y = 0; y < size; y++)
-			{
-				for(int z = 0; z < size; z++)
-				{
-					auto& gradient = getGradient(Vec3i(x, y, z));
-					int wx = x % (size - 1);
-					int wy = y % (size - 1);
-					int wz = z % (size - 1);
-					gradient = getGradient(Vec3i(wx, wy, wz));
-				}
-			}
-		}
-	}
-	Vec3f& getGradient(Vec3i const& v) {
-		return gradients[v.z * size * size + v.y * size + v.x];
-	}
-	// p loops in [0, 1]
-	float fade(float f) { return smoothstep(0.0, 1.0, f); }
-	float pos_mod(float a, float b) { float c = fmod(a, b); if(c < 0.0f) c += b; return c; }
-	float calcAt(Vec3f const& p)
-	{
-		Vec3f pMod = Vec3f(pos_mod(p.x, 1.0f), pos_mod(p.y, 1.0f), pos_mod(p.z, 1.0f));
-		Vec3f pScaled = pMod * (size - 1);
-		Vec3f floor(std::floor(pScaled.x), std::floor(pScaled.y), std::floor(pScaled.z));
-		Vec3i ifloor = floor;
-
-		Vec3f fract = pScaled - floor;
-		float fx = fade(fract.x);
-		float fy = fade(fract.y);
-		float fz = fade(fract.z);
-		float dot[2][2][2];
-		for(int x = 0; x <= 1; x++)
-			for(int y = 0; y <= 1; y++)
-				for(int z = 0; z <= 1; z++)
-				{
-					Vec3f const& grad = getGradient(ifloor + Vec3i(x, y, z));
-					dot[x][y][z] = ci::dot(grad, Vec3f(x, y, z) - fract);
-				}
-		
-		// back->front = y, bottom->top = z, left->right = x
-		float lerpXTopBack = lerp(dot[0][0][1], dot[1][0][1], fx);
-		float lerpXTopFront = lerp(dot[0][1][1], dot[1][1][1], fx);
-		float lerpXBottomBack = lerp(dot[0][0][0], dot[1][0][0], fx);
-		float lerpXBottomFront = lerp(dot[0][1][0], dot[1][1][0], fx);
-		float lerpZBack = lerp(lerpXBottomBack, lerpXTopBack, fz);
-		float lerpZFront = lerp(lerpXBottomFront, lerpXTopFront, fz);
-		float lerpY = lerp(lerpZBack, lerpZFront, fy);
-		return lerpY;
-	}
-};
 Array2D<Vec3f> normals;
 struct Triangle
 {
@@ -102,13 +28,54 @@ struct Triangle
 vector<Triangle> triangles2;
 Array2D<Triangle> triangles;
 Image img2(sx, sy);
-
+gl::Texture NO_DEPTH_TEX;
+gl::Texture maketex(int w, int h, GLint format, GLint internalFormat) {
+	gl::Texture::Format fmt; fmt.setInternalFormat(format); return gl::Texture(NULL, format, w, h, fmt);
+}
+#define checkGL() \
+{\
+	auto error=glGetError();\
+	if(error!=GL_NO_ERROR){\
+		cout<<"["<<__LINE__<<"] GL ERROR "<<error<<endl;\
+		/*system("PAUSE");*/\
+	}\
+}
+void beginRTT(gl::Texture fbotex, gl::Texture& depthtex=NO_DEPTH_TEX)
+{
+	static unsigned int fboid = 0;
+	if(fboid == 0)
+	{
+		glGenFramebuffersEXT(1, &fboid);
+		checkGL();
+	}
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboid);
+	checkGL();
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbotex.getId(), 0);
+	checkGL();
+	if(&depthtex != &NO_DEPTH_TEX)
+	{
+		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, depthtex.getId(), 0);
+		checkGL();
+	}
+	else
+	{
+		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, 0, 0);
+		checkGL();
+	}
+}
+void endRTT()
+{
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, 0, 0);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+}
 struct SApp : AppBasic {
 	ci::Timer timer;
 	PerlinCalculator2D perlinCalculator2D;
 	PerlinCalculator2D perlinCalculator2D2;
 	ci::params::InterfaceGl* params;
 	Vec3f cameraPos;
+	Vec3f camDir;bool absDir;
 	void setup()
 	{
 		timer.start();
@@ -120,10 +87,19 @@ struct SApp : AppBasic {
 		tex = gl::Texture(sx, sy, fmt);
 		shader = gl::GlslProg(loadFile("shader.vs"), loadFile("shader.fs"));
 		setWindowSize(600, 400);
+		//setFullScreen(true);
 		params = new ci::params::InterfaceGl("abc", Vec2i(200, 300));
 		params->addParam("camx",&cameraPos.x,"");
 		params->addParam("camy",&cameraPos.y,"");
 		params->addParam("camz",&cameraPos.z,"");
+		/*params->addParam("dirx",&cameraPos.x,"");
+		params->addParam("diry",&cameraPos.y,"");
+		params->addParam("dirz",&cameraPos.z,"");*/
+		params->addParam("dir", &camDir,"");
+		camDir=-Vec3f::zAxis();
+		absDir=false;
+		params->addParam("dir is abs", &absDir, "");
+		cameraPos.z = 30;
 	}
 	void mouseDown(MouseEvent e)
 	{
@@ -131,6 +107,10 @@ struct SApp : AppBasic {
 	void keyDown(KeyEvent e) {
 		if(e.getChar() == 'p' || e.getChar() == '2')
 			pause = !pause;
+		if(e.getCode() == KeyEvent::KEY_ESCAPE)
+		{
+			std::exit(0);
+		}
 	}
 	static float s1(float f) { return sin(f) * .5f + .5f; }
 	static float c1(float f) { return cos(f) * .5f + .5f; }
@@ -179,9 +159,15 @@ struct SApp : AppBasic {
 		CameraPersp camera;
 		float t = 0.0f * .1f*sin(1.1f*1.f*getElapsedFrames()) < 0.0f ? 0.1f : 0.0f;
 		//camera.lookAt(Vec3f(sx/(float)2.0f, sy/(float)2.0f+.6*sy*0.0f, 0.0f), Vec3f(sx/2, sy/2, -1000.0f), Vec3f::zAxis());
-		camera.lookAt(cameraPos, Vec3f(sx/2, sy/2, 0.0f), -Vec3f::zAxis());
+		//camera.setEyePoint(camera.getEyePoint() + cameraPos);
+		auto eyePos_=Vec3f(sx/(float)2.0f, sy/(float)2.0f+.6*sy*0.0f, 0.0f)+cameraPos;
+		camera.lookAt(
+			eyePos_,
+			absDir ? camDir : (eyePos_+camDir),
+			Vec3f::zAxis());
+		//camera.lookAt(cameraPos, Vec3f(sx/2, sy/2, 0.0f), -Vec3f::zAxis());
 		camera.setAspectRatio(getWindowAspectRatio());
-		camera.setFov(120.0f); // degrees
+		camera.setFov(90.0f); // degrees
 		vector<float> dists;
 		dists += -camera.getModelViewMatrix().transformPointAffine(Vec3f(0.0f, 0.0f, 0.0f)).z;
 		dists += -camera.getModelViewMatrix().transformPointAffine(Vec3f(sx, 0.0f, 0.0f)).z;
@@ -191,6 +177,10 @@ struct SApp : AppBasic {
 		dists += -camera.getModelViewMatrix().transformPointAffine(Vec3f(sx, 0.0f, 50.0f)).z;
 		dists += -camera.getModelViewMatrix().transformPointAffine(Vec3f(0.0f, sy, 50.0f)).z;
 		dists += -camera.getModelViewMatrix().transformPointAffine(Vec3f(sx, sy, 50.0f)).z;
+		cout << "*std::min_element(dists.begin(),dists.end()) "<<*std::min_element(dists.begin(),dists.end())<<endl;
+		cout << "*std::max_element(dists.begin(),dists.end()) "<<*std::max_element(dists.begin(),dists.end())<<endl;
+		//camera.setNearClip(5 * *std::min_element(dists.begin(),dists.end()));
+		//camera.setFarClip(5 * *std::max_element(dists.begin(),dists.end()));
 		shader.bind();
 		shader.uniform("tex", 0); tex.bind(0);
 		shader.uniform("mouse", Vec2f(mouseX, mouseY));
@@ -199,7 +189,8 @@ struct SApp : AppBasic {
 		gl::setMatrices(camera);
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
-		glEnable(GL_CULL_FACE);
+		//glEnable(GL_CULL_FACE);
+		glDisable(GL_CULL_FACE);
 		triangles2.clear();
 		for(int x = 0; x < sx - 1; x++)
 		{
@@ -211,7 +202,7 @@ struct SApp : AppBasic {
 			}
 		}
 		calcNormals();
-		for(int i = 0; i < 1; i++){
+		for(int i = 0; i < 0; i++){
 		foreach(auto& triangle, triangles2)
 		{
 			float fscale = pow(.8f, i);
@@ -219,19 +210,17 @@ struct SApp : AppBasic {
 			float bnoise = .3f * 5.0f * perlinCalculator2D2.calcAt(Vec3f(fscale*triangle.b0.x/(float)sx, fscale*triangle.b0.y/(float)sy, counter));
 			float cnoise = .3f * 5.0f * perlinCalculator2D2.calcAt(Vec3f(fscale*triangle.c0.x/(float)sx, fscale*triangle.c0.y/(float)sy, counter));
 			
-			triangle.a += normals(triangle.ia) * anoise;
-			triangle.b += normals(triangle.ib) * bnoise;
-			triangle.c += normals(triangle.ic) * cnoise;
+			float factor=3.0f;
+			triangle.a += factor*normals(triangle.ia) * anoise;
+			triangle.b += factor*normals(triangle.ib) * bnoise;
+			triangle.c += factor*normals(triangle.ic) * cnoise;
 		}
 		calcNormals();
 		}
-		gl::Fbo::Format fbofmt;
-		fbofmt.enableColorBuffer();
-		fbofmt.enableDepthBuffer();
-		gl::Fbo fbo(getWindowWidth(), getWindowHeight(), fbofmt);
-		fbo.bindFramebuffer();
+		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glBegin(GL_TRIANGLES);
+
 		foreach(auto& triangle, triangles2)
 		{
 			glNormal3f(normals(triangle.ia));
@@ -242,25 +231,26 @@ struct SApp : AppBasic {
 			glVertex3f(triangle.c);
 		}
 		glEnd();
-		fbo.unbindFramebuffer();
 		
 		shader.unbind();
-		static gl::GlslProg shader2
-			(
-			loadFile_("shader.vs").c_str(),
-			"uniform sampler2D tex; varying vec2 tc; void main() { gl_FragColor = vec4(sin(10.0*texture2D(tex, tc).rgb), 1.0); }");
-		//shader2.bind();
 		glDisable(GL_DEPTH_TEST);
 		gl::setMatricesWindow(getWindowSize());
-		gl::draw(fbo.getTexture(), getWindowBounds());
 		gl::enableAlphaBlending();
-		glScalef(2.0f, 2.0f, 1.0f);
-
-
+		
 		gl::drawString(ToString((int)getAverageFps()) + " FPS", Vec2f::zero());
 		gl::GlslProg::unbind();
 
 		params->draw();
+	}
+	void _draw() {
+		gl::Fbo::Format fbofmt;
+		fbofmt.enableColorBuffer();
+		//fbofmt.enableDepthBuffer();
+		gl::Fbo fbo(getWindowWidth(), getWindowHeight(), fbofmt);
+		fbo.bindFramebuffer();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//fbo.unbindFramebuffer();
+		gl::Fbo::unbindFramebuffer();
 	}
 	string loadFile_(string filename) {
 		string buffer;
@@ -296,7 +286,7 @@ struct SApp : AppBasic {
 			normals(p) = normals(p).safeNormalized();
 		}
 	}
-	float h() { return 450.0*(1.0f/6.0f-.5); }
+	float h() { return 10.0f; }
 		
 	Vec3f transform(Vec3f vec)
 	{

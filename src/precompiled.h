@@ -20,6 +20,12 @@
 #include <cinder/Rand.h>
 #include <boost/foreach.hpp>
 #include <fftw3.h>
+#include <cinder/Camera.h>
+#include <boost/assign.hpp>
+#include <cinder/params/Params.h> // not in cinder_lite
+
+using namespace boost::assign;
+
 #define foreach BOOST_FOREACH
 using namespace ci;
 using namespace std;

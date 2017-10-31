@@ -13,7 +13,7 @@ uniform vec2 viewportSize;
 vec3 fog = vec3(0.0);
 void light(vec3 L, vec3 color)
 {
-	L.z=-10.0*L.z;
+	//L.z=-10.0*L.z;
 	//vec3 nL = normalize(L);
 	vec3 L2 = L-pos;
 	vec3 nN = normalize(normal);
@@ -48,9 +48,7 @@ float clamp01(float f) { return max(0.0, min(1.0, f)); }
 float ssin(float f) { return smoothstep(0.47, 0.53, s1(f)); }
 void main()
 {
-	c = vec3(0.1, 0.1, 1.0);
-	vec3 _out_v = vec3(-pos2.z*exp(-10.0+.6*10.0));
-	_out_v = pow(_out_v, vec3(10.0));
+	c = vec3(1.0, 1.0, 1.0);
 	//c *= _out_v;
 	//c = vec3(mix(0.0, 1.0, (1.0/2.0)*(s1(.1*pos.x*s1(pos.x/10.0))+s1(pos.y))));
 	//c = vec3(
@@ -60,34 +58,34 @@ void main()
 	//light(vec3(100.0*s(t*.12), 100.0*s(t*.1+1.0), 20.0+30.0*s(t*.1+2.0)), 10000.0*vec3(1.0, 0.1, 0.1));
 	float twopi_=3.14 * 2.0;
 	float t = time * .1 * .0;
-	light(vec3(50.0+7.0*sin(t+twopi_*0.0/3.0), 50.0+7.0*cos(t+twopi_*0.0/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
-	//light(vec3(50.0+7.0*sin(t+twopi_*1.0/3.0), 50.0+7.0*cos(t+twopi_*1.0/3.0), -6.0+0.0*30.0*c1(t*1.1)), 200.0*vec3(1.0, 0.4, 0.3).zxy);
-	//light(vec3(50.0+7.0*sin(t+twopi_*2.0/3.0), 50.0+7.0*cos(t+twopi_*2.0/3.0), 10.0), 200.0*vec3(1.0, 0.1, 0.1).yzx);
+	light(vec3(50.0+7.0*sin(t+twopi_*0.0/3.0), 50.0+7.0*cos(t+twopi_*0.0/3.0), -6.0+30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
+	light(vec3(50.0+7.0*sin(t+twopi_*1.0/3.0), 50.0+7.0*cos(t+twopi_*1.0/3.0), -6.0+30.0*c1(t*1.1)), 200.0*vec3(1.0, 0.4, 0.3).zxy);
+	light(vec3(50.0+7.0*sin(t+twopi_*2.0/3.0), 50.0+7.0*cos(t+twopi_*2.0/3.0), 10.0), 200.0*vec3(1.0, 0.1, 0.1).yzx);
 	
-	light(vec3(50.0+7.0*sin(t+twopi_*0.0/3.0), 50.0+7.0*cos(t+twopi_*0.0/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
+	/*light(vec3(50.0+7.0*sin(t+twopi_*0.0/3.0), 50.0+7.0*cos(t+twopi_*0.0/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
 	light(vec3(50.0+7.0*sin(t+twopi_*0.5/3.0), 50.0+7.0*cos(t+twopi_*0.5/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
 	light(vec3(50.0+7.0*sin(t+twopi_*1.0/3.0), 50.0+7.0*cos(t+twopi_*1.0/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
 	light(vec3(50.0+7.0*sin(t+twopi_*1.5/3.0), 50.0+7.0*cos(t+twopi_*1.5/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
 	light(vec3(50.0+7.0*sin(t+twopi_*2.0/3.0), 50.0+7.0*cos(t+twopi_*2.0/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
-	light(vec3(50.0+7.0*sin(t+twopi_*2.5/3.0), 50.0+7.0*cos(t+twopi_*2.5/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);
+	light(vec3(50.0+7.0*sin(t+twopi_*2.5/3.0), 50.0+7.0*cos(t+twopi_*2.5/3.0), -6.0+0.0*30.0*c1(t)), 200.0*vec3(1.0, 1.0, 1.0).xyz);*/
 	
-	
+	//_out += dFdy(gl_FragCoord.z);
+
 	//_out += .01*vec3(1.0, 1.1, 1.3) * c;
 
 	//float z = .5+.5*gl_FragCoord.z;
 	//_out = mix(_out, vec3(.5, 0.0, 0.0), z);
 	//_out = vec3(mod(z, 1.0 / 1000.0) * 1000.0);
 	//_out = vec3(z);
-	//_out /= dFdy(gl_FragCoord.z)*10000.0;
-	_out = max(_out, vec3(0.0));
-	_out /= _out + vec3(1.0);
+	_out /= dFdy(gl_FragCoord.z)*10000.0;
+	//_out = max(_out, vec3(0.0));
+	//_out /= _out + vec3(1.0);
 	//_out = mix(_out, vec3(.0) + fog, 1.0 - exp(-(1.0/30.0)*length(pos2)));
 	//_out = mix(_out, vec3(0.1), clamp01((length(pos2)+0.0)/110.0));
-	/*float luma = dot(_out, vec3(.2, .7, .1));
+	float luma = dot(_out, vec3(.2, .7, .1));
 	float luma2 = luma / (luma + 1.0);
 	_out *= luma2 / luma;
 	//_out = mix(_out, vec3(luma), luma2);
-	*/
 	_out = pow(_out, vec3(1.0 / 2.2));
 	gl_FragColor = vec4(_out, 1.0);
 }

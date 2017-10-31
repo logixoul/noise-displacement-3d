@@ -114,19 +114,19 @@
   <ItemGroup>
     <ClCompile Include="ciextra.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PerlinCalculator2D.cpp" />
     <ClCompile Include="precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">precompiled.h</PrecompiledHeaderFile>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">precompiled.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="simplex_noise.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ciextra.h" />
+    <ClInclude Include="PerlinCalculator2D.h" />
     <ClInclude Include="precompiled.h" />
-    <ClInclude Include="simplex_noise.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
